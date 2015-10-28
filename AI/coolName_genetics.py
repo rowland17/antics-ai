@@ -35,7 +35,7 @@ QUEEN_LOCATION_WEIGHT = 20000
 MOVED_WEIGHT = 1
 
 # population size
-POP_SIZE = 20
+POP_SIZE = 4
 
 # chance of mutation when generating child genes
 MUTATION_CHANCE = 0.1
@@ -73,6 +73,7 @@ class AIPlayer(Player):
         self.fitness = [0] * POP_SIZE
         self.popIndex = 0
         self.geneGamesPlayed = 0
+        self.firstMove = True
 
         # build list of all possible friendly coords
         self.coordList = [(x,y) for y in range(4) for x in range(10)]
@@ -83,8 +84,7 @@ class AIPlayer(Player):
         # initialize populations with new genes
         self.initializePopulations()
 
-        # print "======GENERATING CHILDREN====="
-        # [printGene(x) for x in self.generateChildren([123,234,345,456,567,678],[333,444,555,666,777,888])]
+        [printGene(x) for x in self.generateChildren([123,234,345,456,567,678],[333,444,555,666,777,888],True)]
 
         print "======TESTING COORDSFROMGENE======="
         printCoordList(self.coordsFromGene([0,0,0,0,1,1,1,1,1,123,234,345,456,567,0,0,0,678],False))
@@ -107,22 +107,24 @@ class AIPlayer(Player):
     def getPlacement(self, currentState):
         #implemented by students to return their next move
         if currentState.phase == SETUP_PHASE_1:    #stuff on my side
-            numToPlace = 11
-            moves = []
-            for i in range(0, numToPlace):
-                move = None
-                while move == None:
-                    #Choose any x location
-                    x = random.randint(0, 9)
-                    #Choose any y location on your side of the board
-                    y = random.randint(0, 3)
-                    #Set the move if this space is empty
-                    if currentState.board[x][y].constr == None and (x, y) not in moves:
-                        move = (x, y)
-                        #Just need to make the space non-empty. So I threw whatever I felt like in there.
-                        currentState.board[x][y].constr == True
-                moves.append(move)
-            return moves
+            self.firstMove = True
+            return self.coordsFromGene(self.constrPopulation[self.popIndex], False)
+        #     numToPlace = 11
+        #     moves = []
+        #     for i in range(0, numToPlace):
+        #         move = None
+        #         while move == None:
+        #             #Choose any x location
+        #             x = random.randint(0, 9)
+        #             #Choose any y location on your side of the board
+        #             y = random.randint(0, 3)
+        #             #Set the move if this space is empty
+        #             if currentState.board[x][y].constr == None and (x, y) not in moves:
+        #                 move = (x, y)
+        #                 #Just need to make the space non-empty. So I threw whatever I felt like in there.
+        #                 currentState.board[x][y].constr == True
+        #         moves.append(move)
+        #     return moves
         elif currentState.phase == SETUP_PHASE_2:   #stuff on foe's side
             numToPlace = 2
             moves = []
@@ -186,17 +188,23 @@ class AIPlayer(Player):
     #
     # Return: a list of the two child genes
     ##
-    def generateChildren(self, gene1, gene2):
+    def generateChildren(self, gene1, gene2, isFood):
+        print "======GENERATING CHILDREN====="
         # pick a pivot point for joining the genes
-        pivot = random.randint(1,len(gene1))
-
+        pivot = random.randint(1,len(gene1)-1)
+        print "pivot = " + `pivot`
         # splice the genes at the pivot point to make 2 children
         children = [gene1[:pivot] + gene2[pivot:], gene2[:pivot] + gene1[pivot:]]
 
         # randomly mutate children by chance, changing a random value
         for child in children:
             if random.random() < MUTATION_CHANCE:
-                child[random.randint(0,len(child))] = random.randint(0,1000)
+                if isFood:
+                    child[random.choice(sorted(zip(child,range(len(child))))[-2:])[1]] = random.randint(0,1000)
+                else:
+                    child[random.choice(sorted(zip(child,range(len(child))))[-11:])[1]] = random.randint(0,1000)
+
+                # child[random.randint(0,len(child)-1)] = random.randint(0,1000)
 
                 # swapIdxs = random.sample(range(len(child)),2)
                 # temp = child[swapIdxs[0]]
@@ -319,6 +327,9 @@ class AIPlayer(Player):
     #Return: The Move to be made
     ##
     def getMove(self, currentState):
+        if self.firstMove:
+            asciiPrintState(currentState)
+            self.firstMove = False
 
         # Cache the list of building locations for each player
         buildings = [
@@ -587,9 +598,11 @@ class AIPlayer(Player):
     ##
     def registerWin(self, hasWon):
         if hasWon:
+            print "won: increment fitness[" + `self.popIndex` + "]"
             self.fitness[self.popIndex] += 1
         self.geneGamesPlayed += 1
         if self.geneGamesPlayed >= GAMES_PER_GENE:
+            print "switch to next gene"
             self.geneGamesPlayed = 0
             self.popIndex += 1
             if self.popIndex >= POP_SIZE:
@@ -603,27 +616,33 @@ class AIPlayer(Player):
     #   current population and then reset the fitness scores for the new generation
     ##
     def generateNewPopulation(self):
-        print ' '.join([`x` for x in self.fitness])
+        print "====GENERATING NEW POPULATION===="
+        print "fitness: " + ' '.join([`x` for x in self.fitness])
         # masterList = sorted(zip(self.fitness, self.constrPopulation, self.foodPopulation))[-6:]#############################
         choiceList = zip(range(len(self.fitness)), self.fitness)
         newConstrPopulation = []
         newFoodPopulation = []
         for _ in range(POP_SIZE/2):
-            idx = [self.constrPopulation[weightedChoice(choiceList)] for _ in [0,0]]
+            idx = [weightedChoice(choiceList) for _ in [0,0]]
+            print "IDX PARENTS: " + ' '.join([`x` for x in idx])
             constrChildren = self.generateChildren(self.constrPopulation[idx[0]],
-                                                   self.constrPopulation[idx[1]])
+                                                   self.constrPopulation[idx[1]], False)
             foodChildren = self.generateChildren(self.foodPopulation[idx[0]],
-                                                 self.foodPopulation[idx[1]])
+                                                 self.foodPopulation[idx[1]], True)
             newConstrPopulation.append(constrChildren[0])
             newConstrPopulation.append(constrChildren[1])
             newFoodPopulation.append(foodChildren[0])
             newFoodPopulation.append(foodChildren[1])
         self.constrPopulation = newConstrPopulation
         self.foodPopulation = newFoodPopulation
+        print "CONSTR GENES: "
+        [printGene(gene) for gene in newConstrPopulation]
+        print "FOOD GENES: "
+        [printGene(gene) for gene in newFoodPopulation]
 
 
 def weightedChoice(choices):
-    r = random.uniform(0, sum(w for _, w in choices))
+    r = random.uniform(0, sum(weight for _, weight in choices))
     for choice, weight in choices:
         r -= weight
         if r < 0:
