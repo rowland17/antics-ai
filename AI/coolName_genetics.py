@@ -35,12 +35,12 @@ QUEEN_LOCATION_WEIGHT = 20000
 MOVED_WEIGHT = 1
 
 # population size
-POP_SIZE = 4
+POP_SIZE = 20
 
 # chance of mutation when generating child genes
 MUTATION_CHANCE = 0.1
 
-GAMES_PER_GENE = 10
+GAMES_PER_GENE = 15
 
 
 ##
@@ -84,7 +84,7 @@ class AIPlayer(Player):
         # initialize populations with new genes
         self.initializePopulations()
 
-        [printGene(x) for x in self.generateChildren([123,234,345,456,567,678],[333,444,555,666,777,888],True)]
+        [printGene(x) for x in self.generateChildren([123,234,345,456,567,678],[333,444,555,666,777,888],False)]
 
         print "======TESTING COORDSFROMGENE======="
         printCoordList(self.coordsFromGene([0,0,0,0,1,1,1,1,1,123,234,345,456,567,0,0,0,678],False))
@@ -189,20 +189,24 @@ class AIPlayer(Player):
     # Return: a list of the two child genes
     ##
     def generateChildren(self, gene1, gene2, isFood):
-        print "======GENERATING CHILDREN====="
         # pick a pivot point for joining the genes
         pivot = random.randint(1,len(gene1)-1)
         print "pivot = " + `pivot`
         # splice the genes at the pivot point to make 2 children
         children = [gene1[:pivot] + gene2[pivot:], gene2[:pivot] + gene1[pivot:]]
 
-        # randomly mutate children by chance, changing a random value
+        # randomly mutate children by chance
         for child in children:
             if random.random() < MUTATION_CHANCE:
                 if isFood:
-                    child[random.choice(sorted(zip(child,range(len(child))))[-2:])[1]] = random.randint(0,1000)
+                    idxList = [x[1] for x in random.sample(sorted(zip(child,range(len(child)))),20)]
+                    # child[random.choice(sorted(zip(child,range(len(child))))[-2:])[1]] = random.randint(0,1000)
+
                 else:
-                    child[random.choice(sorted(zip(child,range(len(child))))[-11:])[1]] = random.randint(0,1000)
+                    idxList = [x[1] for x in random.sample(sorted(zip(child,range(len(child)))),4)]
+                    # child[random.choice(sorted(zip(child,range(len(child))))[-11:])[1]] = random.randint(0,1000)
+
+                for i in idxList: child[i] = random.randint(0,1000)
 
                 # child[random.randint(0,len(child)-1)] = random.randint(0,1000)
 
@@ -623,6 +627,7 @@ class AIPlayer(Player):
         newConstrPopulation = []
         newFoodPopulation = []
         for _ in range(POP_SIZE/2):
+            print "======GENERATING CHILDREN====="
             idx = [weightedChoice(choiceList) for _ in [0,0]]
             print "IDX PARENTS: " + ' '.join([`x` for x in idx])
             constrChildren = self.generateChildren(self.constrPopulation[idx[0]],
@@ -652,7 +657,7 @@ def weightedChoice(choices):
 # printGene
 ##
 def printGene(gene):
-    print ' '.join([`x` for x in gene])
+    print "[" + ','.join([`x` for x in gene]) + "]"
 
 ##
 # printCoordList
