@@ -181,21 +181,21 @@ class AIPlayer(Player):
             return [self.coordList[x] for x in idxList]
 
     ##
-    #getMove
+    # getMove
     #Description: Gets the next move from the Player.
     #
     #Parameters:
     #   currentState - The state of the current game waiting for the player's move (GameState)
     #
-    #Return: The Move to be made
+    # Return: The Move to be made
     ##
     def getMove(self, currentState):
         self.numMoves += 1
-
+#
         if self.isFirstMove:
             asciiPrintState(currentState)
             self.isFirstMove = False
-
+#
         moveList = listAllLegalMoves(currentState)
         return max([(score, move) for score,move in
                     zip([self.evaluateState(self.getFutureState(currentState, m)) for m in moveList],moveList)])[1]
