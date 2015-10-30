@@ -74,6 +74,8 @@ class AIPlayer(Player):
         self.popIndex = 0
         self.geneGamesPlayed = 0
         self.firstMove = True
+        self.numMoves = 0
+        self.foodScore = 0
 
         # build list of all possible friendly coords
         self.coordList = [(x,y) for y in range(4) for x in range(10)]
@@ -88,6 +90,9 @@ class AIPlayer(Player):
 
         print "======TESTING COORDSFROMGENE======="
         printCoordList(self.coordsFromGene([0,0,0,0,1,1,1,1,1,123,234,345,456,567,0,0,0,678],False))
+
+        self.f1=open('./out1.txt', 'w+')
+        self.f1.truncate()
 
 
     ##
@@ -135,7 +140,7 @@ class AIPlayer(Player):
                 if currentState.board[coord[0]][coord[1]].constr is not None:
                     found = False
                     for nextCoord in listReachableAdjacent(currentState, coord, 2):
-                        if currentState.board[nextCoord[0]][nextCoord[1]].constr is None:
+                        if nextCoord[1] > 5 and currentState.board[nextCoord[0]][nextCoord[1]].constr is None:
                             coord = nextCoord
                             found = True
                             break
@@ -356,8 +361,12 @@ class AIPlayer(Player):
     #Return: The Move to be made
     ##
     def getMove(self, currentState):
+        self.numMoves += 1
+        self.foodScore = currentState.inventories[currentState.whoseTurn].foodCount
+
         if self.firstMove:
             asciiPrintState(currentState)
+            self.asciiPrintStateToFile(currentState)
             self.firstMove = False
 
         # Cache the list of building locations for each player
@@ -626,9 +635,13 @@ class AIPlayer(Player):
     #   hasWon - True if the player won the game. False if they lost (Boolean)
     ##
     def registerWin(self, hasWon):
-        if hasWon:
-            print "won: increment fitness[" + `self.popIndex` + "]"
-            self.fitness[self.popIndex] += 1
+        # if hasWon:
+        #     print "won: increment fitness[" + `self.popIndex` + "]"
+        #     self.fitness[self.popIndex] += 1
+        if hasWon: self.foodScore = 11
+        print "fitness = " + `self.foodScore` + " / " + `float(self.numMoves)` + " = " + `(self.foodScore / float(self.numMoves))`
+        self.fitness[self.popIndex] += self.foodScore / float(self.numMoves)
+        self.numMoves = 0
         self.geneGamesPlayed += 1
         if self.geneGamesPlayed >= GAMES_PER_GENE:
             print "switch to next gene"
@@ -670,6 +683,48 @@ class AIPlayer(Player):
         print "FOOD GENES: "
         [printGene(gene) for gene in newFoodPopulation]
 
+    ##
+    # asciiPrintState
+    #
+    # prints a text representation of a GameState to stdout.  This is useful for
+    # debugging.
+    #
+    # Parameters:
+    #    state - the state to print
+    #
+    def asciiPrintStateToFile(self, state):
+        #select coordinate ranges such that board orientation will match the GUI
+        #for either player
+        coordRange = range(0,10)
+        colIndexes = " 0123456789"
+        if (state.whoseTurn == PLAYER_TWO):
+            coordRange = range(9,-1,-1)
+            colIndexes = " 9876543210"
+
+        #print the board with a border of column/row indexes
+        print >> self.f1, colIndexes
+        index = 0              #row index
+        for x in coordRange:
+            row = str(x)
+            for y in coordRange:
+                ant = getAntAt(state, (y, x))
+                if (ant != None):
+                    row += charRepAnt(ant)
+                else:
+                    constr = getConstrAt(state, (y, x))
+                    if (constr != None):
+                        row += charRepConstr(constr)
+                    else:
+                        row += "."
+            print >> self.f1, row + str(x)
+            index += 1
+        print >> self.f1, colIndexes
+
+        #print food totals
+        p1Food = state.inventories[0].foodCount
+        p2Food = state.inventories[1].foodCount
+        print >> self.f1, " food: " + str(p1Food) + "/" + str(p2Food)
+
 
 def weightedChoice(choices):
     r = random.uniform(0, sum(weight for _, weight in choices))
@@ -689,3 +744,5 @@ def printGene(gene):
 ##
 def printCoordList(coordList):
     print ' '.join(["(" + `x` + "," + `y` + ")" for x,y in coordList])
+
+
