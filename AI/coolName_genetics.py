@@ -35,12 +35,12 @@ QUEEN_LOCATION_WEIGHT = 20000
 MOVED_WEIGHT = 1
 
 # population size
-POP_SIZE = 20
+POP_SIZE = 10
 
 # chance of mutation when generating child genes
 MUTATION_CHANCE = 0.1
 
-GAMES_PER_GENE = 15
+GAMES_PER_GENE = 10
 
 
 ##
@@ -126,21 +126,46 @@ class AIPlayer(Player):
         #         moves.append(move)
         #     return moves
         elif currentState.phase == SETUP_PHASE_2:   #stuff on foe's side
-            numToPlace = 2
+            # numToPlace = 2
             moves = []
-            for i in range(0, numToPlace):
-                move = None
-                while move == None:
-                    #Choose any x location
-                    x = random.randint(0, 9)
-                    #Choose any y location on enemy side of the board
-                    y = random.randint(6, 9)
-                    #Set the move if this space is empty
-                    if currentState.board[x][y].constr == None and (x, y) not in moves:
-                        move = (x, y)
-                        #Just need to make the space non-empty. So I threw whatever I felt like in there.
-                        currentState.board[x][y].constr == True
-                moves.append(move)
+            foodCoords = self.coordsFromGene(self.foodPopulation[self.popIndex], True)
+            if len(foodCoords) != 2:
+                print "foodCoords lenabob = " + `len(foodCoords)`
+            for coord in foodCoords:
+                if currentState.board[coord[0]][coord[1]].constr is not None:
+                    found = False
+                    for nextCoord in listReachableAdjacent(currentState, coord, 2):
+                        if currentState.board[nextCoord[0]][nextCoord[1]].constr is None:
+                            coord = nextCoord
+                            found = True
+                            break
+                    if not found:
+                        coord = None
+                        while coord == None:
+                            #Choose any x location
+                            x = random.randint(0, 9)
+                            #Choose any y location on enemy side of the board
+                            y = random.randint(6, 9)
+                            #Set the move if this space is empty
+                            if currentState.board[x][y].constr is None and (x, y) not in moves:
+                                coord = (x, y)
+                                #Just need to make the space non-empty. So I threw whatever I felt like in there.
+                                currentState.board[x][y].constr = True
+                currentState.board[coord[0]][coord[1]].constr = True
+                moves.append(coord)
+            # for i in range(0, numToPlace):
+            #     move = None
+            #     while move == None:
+            #         #Choose any x location
+            #         x = random.randint(0, 9)
+            #         #Choose any y location on enemy side of the board
+            #         y = random.randint(6, 9)
+            #         #Set the move if this space is empty
+            #         if currentState.board[x][y].constr is None and (x, y) not in moves:
+            #             move = (x, y)
+            #             #Just need to make the space non-empty. So I threw whatever I felt like in there.
+            #             currentState.board[x][y].constr == True
+            #     moves.append(move)
             return moves
         else:
             return [(0, 0)]
