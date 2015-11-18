@@ -1,1 +1,3 @@
 *.pyc
+AI-GIT-IGNORE/*
+.idea*
