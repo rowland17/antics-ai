@@ -1,4 +1,8 @@
-import math, heapq, cPickle
+import math, heapq, sys
+try:
+    import cPickle as pickle
+except:
+    import pickle
 from Player import *
 from Construction import Construction
 from Ant import Ant
@@ -16,9 +20,10 @@ QUEEN_EDGE_WEIGHT = 200
 SET_POOL = 4
 NUM_INPUTS = 9
 NUM_NODES = 2 * NUM_INPUTS
-LEARNING_RATE = 0.1
+LEARNING_RATE = 1
+DUMP_TRIGGER = 10000
 
-loadWeightsFromFile = False
+loadWeightsFromFile = not True
 
 # a representation of a 'node' in the search tree
 treeNode = {
@@ -74,7 +79,20 @@ class AIPlayer(Player):
         self.nodes = []
 
         # initialize the neural network
-        self.initNetworkWeights()
+        if loadWeightsFromFile:
+            f = open("weights.p", 'rb')
+            weightsFromFile = pickle.load(f)
+            self.firstWeights = weightsFromFile[0]
+            self.secondWeights = weightsFromFile[1]
+            f.close()
+
+            for _ in range(NUM_NODES):
+                self.nodes.append(0)
+
+        else:
+            self.initNetworkWeights()
+
+        self.goodOutputCount = 0
 
     ##
     # initNetworkWeights
@@ -243,6 +261,18 @@ class AIPlayer(Player):
                     print `finalErr` + "       DANGER ZONE"
             else:
                 print finalErr
+            self.goodOutputCount = 0
+        else:
+            self.goodOutputCount += 1
+            if self.goodOutputCount > DUMP_TRIGGER:
+                f = open("weights.p", 'wb')
+                f.truncate()
+                pickle.dump((self.firstWeights,self.secondWeights), f, 0)
+                f.close()
+
+                sys.exit()
+
+
         finalGamma = actualVal * (1-actualVal) * finalErr
 
         err = []
@@ -507,6 +537,11 @@ class AIPlayer(Player):
     #   where 0.0 is a loss and 1.0 is a victory and 0.5 is neutral
     ##
     def evaluateState(self, currentState):
+
+        if loadWeightsFromFile:
+            self.setNeuralInputs(currentState)
+            return self.getNeuralOutput()
+
         # make some references to player inventories and the queen
         playerInv = currentState.inventories[currentState.whoseTurn]
         enemyInv = currentState.inventories[1 - currentState.whoseTurn]
