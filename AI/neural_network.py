@@ -1,29 +1,22 @@
-import math, heapq, sys
-try:
-    import cPickle as pickle
-except:
-    import pickle
+import math, heapq, sys, pickle
 from Player import *
 from Construction import Construction
 from Ant import Ant
 from AIPlayerUtils import *
 
-# set constants
+# minimax constants
 
-MAX_DEPTH = 1
 INFINITY = 9999.9
-WORKER_COUNT_WEIGHT = 10000
-FOOD_WEIGHT = 1000
-DISTANCE_WEIGHT = 250
-CARRY_WEIGHT = 500
-QUEEN_EDGE_WEIGHT = 200
+MAX_DEPTH = 1
 SET_POOL = 4
-NUM_INPUTS = 9
-NUM_NODES = 2 * NUM_INPUTS
-LEARNING_RATE = 1
-DUMP_TRIGGER = 10000
 
-loadWeightsFromFile = not True
+# neural network constants
+
+NUM_INPUTS = 8
+NUM_NODES = 2 * NUM_INPUTS
+LEARNING_RATE = 0.1
+DUMP_TRIGGER = 10000
+LOAD_WEIGHTS_FROM_FILE = True
 
 # a representation of a 'node' in the search tree
 treeNode = {
@@ -65,33 +58,35 @@ class AIPlayer(Player):
         # initialize the AI in the game
         super(AIPlayer,self).__init__(inputPlayerId, "The Overmind Slumbers")
 
+        # reference to AIPlayer's anthill structure
+        self.playerAnthill = None
+
         # initialize our food location tracker to be empty
         self.foodList = []
 
         # neural network inputs
-        self.inputs = []
+        self.inputs = [0] * NUM_INPUTS
 
         # neural network weights
         self.firstWeights = []
         self.secondWeights = []
 
         # neural network node values
-        self.nodes = []
+        self.nodes = [0] * NUM_NODES
 
         # initialize the neural network
-        if loadWeightsFromFile:
+        if LOAD_WEIGHTS_FROM_FILE:
+            # use weights previously saved to a file
             f = open("weights.p", 'rb')
             weightsFromFile = pickle.load(f)
             self.firstWeights = weightsFromFile[0]
             self.secondWeights = weightsFromFile[1]
             f.close()
-
-            for _ in range(NUM_NODES):
-                self.nodes.append(0)
-
         else:
+            # use random weights
             self.initNetworkWeights()
 
+        # tracks number of consecutive accurate network outputs
         self.goodOutputCount = 0
 
     ##
@@ -103,16 +98,10 @@ class AIPlayer(Player):
     def initNetworkWeights(self):
         # make firstWeights a list[NUM_NODES][NUM_INPUTS + 1]
         # and fill it with random numbers
-        for _ in range(NUM_NODES):
-            randWeights = []
-            for __ in range(NUM_INPUTS + 1):
-                randWeights.append(random.random() * 2 - 1)
-            self.firstWeights.append(randWeights)
-            self.nodes.append(0)
+        self.firstWeights = [[random.random() * 2 - 1 for _ in range(NUM_INPUTS + 1)] for _ in range(NUM_NODES)]
 
         # make secondWeights a list[NUM_NODES + 1] of random numbers
-        for _ in range(NUM_NODES + 1):
-            self.secondWeights.append(random.random() * 2 - 1)
+        self.secondWeights = [random.random() * 2 - 1 for _ in range(NUM_NODES + 1)]
 
     ##
     # setNeuralInputs
@@ -124,70 +113,53 @@ class AIPlayer(Player):
     #   state - The state to create inputs from (GameState)
     ##
     def setNeuralInputs(self, state):
-        # reset the inputs
-        self.inputs = []
-
-        # make some references to player inventories and the queen
+        # make some references to player inventories and the queens
         playerInv = state.inventories[state.whoseTurn]
+        workerList = getAntList(state, state.whoseTurn, [WORKER])
         enemyInv = state.inventories[1 - state.whoseTurn]
         playerQueen = playerInv.getQueen()
         enemyQueen = enemyInv.getQueen()
 
-        # INPUT 0: player queen is alive (true/false)
-        if playerInv.getQueen() is None:
-            self.inputs.append(0.)
+        # INPUT 0: defeat state (true/false)
+        if playerQueen is None or enemyInv.foodCount >= 11:
+            self.inputs[0] = 1.
         else:
-            self.inputs.append(1.)
+            self.inputs[0] = 0.
 
-        # INPUT 1: enemy queen is alive (true/false)
-        if enemyQueen is None:
-            self.inputs.append(0.)
+        # INPUT 1: victory state (true/false)
+        if enemyQueen is None or playerInv.foodCount >= 11:
+            self.inputs[1] = 1.
         else:
-            self.inputs.append(1.)
+            self.inputs[1] = 0.
 
-        workerList = getAntList(state, state.whoseTurn, (WORKER,))
-
-        # INPUT 2: player has 1 worker (true/false)
-        if len(workerList) == 1:
-            self.inputs.append(1.)
+        # INPUT 2: player queen is on anthill (true/false)
+        if playerQueen and playerQueen.coords == self.playerAnthill:
+            self.inputs[2] = 1.
         else:
-            self.inputs.append(0.)
+            self.inputs[2] = 0.
 
-        # INPUT 3: player has 2 ants (true/false)
-        if len(playerInv.ants) == 2:
-            self.inputs.append(1.)
-        else:
-            self.inputs.append(0.)
+        # INPUT 3: player queen's Y-coordinate
+        self.inputs[3] = playerQueen.coords[1] / 3.
 
-        # INPUT 4: player food score
-        self.inputs.append(playerInv.foodCount/11.)
-        # INPUT 5: enemy food score
-        self.inputs.append(enemyInv.foodCount/11.)
+        # INPUT 4: number of workers
+        self.inputs[4] = min([2, len(workerList)]) / 2.
 
-        # INPUT 6: worker is carrying (true/false)
-        # INPUT 7: worker distance to closest goal
-        if len(workerList) > 0:
-            # a worker is on the board
-            if workerList[0].carrying:
-                self.inputs.append(1.)
-                goals = getConstrList(state, state.whoseTurn, (ANTHILL, TUNNEL))
-            else:
-                self.inputs.append(0.)
-                goals = self.foodList
+        # INPUT 5: worker 1 distance to enemy queen
+        self.inputs[5] = 0.
+        if enemyQueen and len(workerList) > 0:
+            self.inputs[5] = (abs(workerList[0].coords[0] - enemyQueen.coords[0]) +
+                              abs(workerList[0].coords[1] - enemyQueen.coords[1])) / 20.
 
-            # find distance to closest goal
-            distanceToGoal = min(abs(workerList[0].coords[0] - g.coords[0]) +
-                                 abs(workerList[0].coords[1] - g.coords[1]) for g in goals)
-            self.inputs.append(1 / (distanceToGoal + 1.))
-        else:
-            # no worker on board, so...
-            # worker is not carrying
-            self.inputs.append(0.)
-            # represent an infinite distance to goal
-            self.inputs.append(0.)
+        # INPUT 6: worker 2 distance to enemy queen
+        self.inputs[6] = 0.
+        if enemyQueen and len(workerList) > 1:
+            self.inputs[6] = (abs(workerList[1].coords[0] - enemyQueen.coords[0]) +
+                              abs(workerList[1].coords[1] - enemyQueen.coords[1])) / 20.
 
-        # INPUT 8: player queen's Y-coordinate
-        self.inputs.append(1 / (playerQueen.coords[1] + 1.))
+        # INPUT 7: enemy queen health
+        self.inputs[7] = 0.
+        if enemyQueen:
+            self.inputs[7] = (enemyQueen.health + 0.) / UNIT_STATS[QUEEN][HEALTH]
 
     ##
     # getNeuralOutput
@@ -252,20 +224,27 @@ class AIPlayer(Player):
     def backPropagation(self, actualVal, targetVal):
         # calculate the final node's Err and gamma values
         finalErr = targetVal - actualVal
-        #print "NEURAL OUT: " + format(actualVal, '.6f') + " (" + format(targetVal, '.6f') + ", diff = " + format(finalErr, '.6f') + ")"
+
+        # track how many consecutive accurate outputs our network has had
         if abs(finalErr) > 0.01:
+            #DEBUGGING MSGS##############################################################################################
+            debugStr = `finalErr` + " (" + `self.goodOutputCount` + ")"
             if abs(finalErr) > 0.02:
                 if abs(finalErr) > 0.03:
-                    print `finalErr` + "====== BAD OUTPUT ====="
+                    debugStr += "====== BAD OUTPUT ====="
                 else:
-                    print `finalErr` + "       DANGER ZONE"
-            else:
-                print finalErr
+                    debugStr +=  "       DANGER ZONE"
+            print debugStr
+
+            # bad output, reset counter
             self.goodOutputCount = 0
         else:
+            # good output
             self.goodOutputCount += 1
             if self.goodOutputCount > DUMP_TRIGGER:
-                f = open("weights.p", 'wb')
+                # once we get a good-output streak big enough,
+                # write the current weights to file and exit
+                f = open("AI/weights.p", 'wb')
                 f.truncate()
                 pickle.dump((self.firstWeights,self.secondWeights), f, 0)
                 f.close()
@@ -359,7 +338,7 @@ class AIPlayer(Player):
             node = treeNode.copy()
             node["parent"] = currentNode
             node["move"] = m
-            node["potential_state"] = self.processMove(currentState, m)
+            node["potential_state"] = self.getFutureState(currentState, m)
             node["state_value"] = self.evaluateState(node["potential_state"])
             possibleNodes.append(node)
 
@@ -434,27 +413,26 @@ class AIPlayer(Player):
 
         # return our best subnode
         return self.evaluateNodes(nodesToIterate)
-    
+
     ##
-    # processMove
+    # getFutureState
     #
-    # Description: The processMove method looks at the current state
-    # of the game and returns a copy of the state that results from
-    # making the given Move
+    # Description: Simulates and returns the new state that would exist after
+    #   a move is applied to current state
     #
     # Parameters:
-    #   currentState - The current State of the game
-    #   move - The Move which alters the state
+    #   currentState - The game's current state (GameState)
+    #   move - The Move that is to be simulated
     #
-    # Return: The resulting State after Move is applied
+    # Return: The simulated future state (GameState)
     ##
-    def processMove(self, currentState, move):
+    def getFutureState(self, currentState, move):
         # create a bare-bones copy of the state to modify
-        copyOfState = currentState.fastclone()
-        
+        newState = currentState.fastclone()
+
         # get references to the player inventories
-        playerInv = copyOfState.inventories[copyOfState.whoseTurn]
-        enemyInv = copyOfState.inventories[(copyOfState.whoseTurn+1) % 2]
+        playerInv = newState.inventories[newState.whoseTurn]
+        enemyInv = newState.inventories[1 - newState.whoseTurn]
 
         if move.moveType == BUILD:
         # BUILD MOVE
@@ -465,50 +443,49 @@ class AIPlayer(Player):
             else:
                 # building an ant
                 playerInv.foodCount -= UNIT_STATS[move.buildType][COST]
-                playerInv.ants.append(Ant(move.coordList[0], move.buildType, copyOfState.whoseTurn))
+                playerInv.ants.append(Ant(move.coordList[0], move.buildType, newState.whoseTurn))
 
         elif move.moveType == MOVE_ANT:
         # MOVE AN ANT
             # get a reference to the ant
-            ant = getAntAt(copyOfState, move.coordList[0])
+            ant = getAntAt(newState, move.coordList[0])
 
             # update the ant's location after the move
             ant.coords = move.coordList[-1]
             ant.hasMoved = True
-            
+
             # get a reference to a potential construction at the destination coords
-            constr = getConstrAt(copyOfState, move.coordList[-1])
+            constr = getConstrAt(newState, move.coordList[-1])
 
-            # check to see if the ant is on a food or tunnel or hill and act accordingly
-            if constr:
-                # we only care about workers
-                if ant.type == WORKER:
-                    # if destination is food and ant can carry, pick up food
-                    if constr.type == FOOD:
-                        if not ant.carrying:
-                            ant.carrying = True
-                    # if destination is dropoff structure and and is carrying, drop off food
-                    elif constr.type == TUNNEL or constr.type == ANTHILL:
-                        if ant.carrying:
-                            ant.carrying = False
-                            playerInv.foodCount += 1
+            # check to see if a worker ant is on a food or tunnel or hill and act accordingly
+            if constr and ant.type == WORKER:
+                # if destination is food and ant can carry, pick up food
+                if constr.type == FOOD:
+                    if not ant.carrying:
+                        ant.carrying = True
+                # if destination is dropoff structure and and is carrying, drop off food
+                elif constr.type == TUNNEL or constr.type == ANTHILL:
+                    if ant.carrying:
+                        ant.carrying = False
+                        playerInv.foodCount += 1
 
-            # get a list of the coordinates of the enemy's ants                 
+            # get a list of the coordinates of the enemy's ants
             enemyAntCoords = [enemyAnt.coords for enemyAnt in enemyInv.ants]
 
             # contains the coordinates of ants that the 'moving' ant can attack
             validAttacks = []
 
-            # go through the list of enemy ant locations and check if 
+            # go through the list of enemy ant locations and check if
             # we can attack that spot, and if so add it to a list of
             # valid attacks (one of which will be chosen at random)
             for coord in enemyAntCoords:
-                if UNIT_STATS[ant.type][RANGE] ** 2 >= abs(ant.coords[0] - coord[0]) ** 2 + abs(ant.coords[1] - coord[1]) ** 2:
+                if UNIT_STATS[ant.type][RANGE] ** 2 >= abs(ant.coords[0] - coord[0]) ** 2 + \
+                                                       abs(ant.coords[1] - coord[1]) ** 2:
                     validAttacks.append(coord)
 
             # if we can attack, pick a random attack and do it
             if validAttacks:
-                enemyAnt = getAntAt(copyOfState, random.choice(validAttacks))
+                enemyAnt = getAntAt(newState, random.choice(validAttacks))
                 attackStrength = UNIT_STATS[ant.type][ATTACK]
 
                 if enemyAnt.health <= attackStrength:
@@ -519,9 +496,9 @@ class AIPlayer(Player):
                 else:
                     # lower the enemy ant's health because they were attacked
                     enemyAnt.health -= attackStrength
-        
+
         # return the modified copy of the original state
-        return copyOfState
+        return newState
 
     ##
     # evaluateState
@@ -536,63 +513,62 @@ class AIPlayer(Player):
     # Return: The score of the state on a scale of 0.0 to 1.0
     #   where 0.0 is a loss and 1.0 is a victory and 0.5 is neutral
     ##
-    def evaluateState(self, currentState):
-
-        if loadWeightsFromFile:
-            self.setNeuralInputs(currentState)
+    def evaluateState(self, state):
+        # use neural network instead if loaded
+        if LOAD_WEIGHTS_FROM_FILE:
+            self.setNeuralInputs(state)
             return self.getNeuralOutput()
 
-        # make some references to player inventories and the queen
-        playerInv = currentState.inventories[currentState.whoseTurn]
-        enemyInv = currentState.inventories[1 - currentState.whoseTurn]
-        playerQueen = playerInv.getQueen()
+        # local constants for adjusting weights of evaluation
+        QUEEN_EDGE_MAP_WEIGHT = 0.01
+        BUILD_WORKER_WEIGHT = 0.1
+        MOVE_TOWARDS_QUEEN_WEIGHT = 0.005
+        QUEEN_HEALTH_WEIGHT = 0.025
+        QUEEN_ON_HILL_WEIGHT = 0.1
+
+        # get some references for use later
+        playerInv = state.inventories[state.whoseTurn]
+        enemyInv = state.inventories[1 - state.whoseTurn]
         enemyQueen = enemyInv.getQueen()
 
-        # check for lost game (dead queen or enemy food victory)
-        if playerInv.getQueen() is None or enemyInv.foodCount >= 11:
-            return 0.0
-        # check for victory (dead enemy queen or food victory)
-        if enemyQueen is None or playerInv.foodCount >= 11:
-            return 1.0
+        # # check for defeat (dead queen or enemy food victory)
+        # if playerInv.getQueen() is None or enemyInv.foodCount >= 11:
+        #     return 0.0
+        # # check for victory (dead enemy queen or food victory)
+        # if enemyQueen is None or playerInv.foodCount >= 11:
+        #     return 1.0
 
-        # start our score at a neutral 0
-        # (this will be normalized to a 0.0 - 1.0 range before being returned)
-        stateScore = 0
+        # start the score at a semi-neutral value
+        score = 0.4
 
-        workerList = getAntList(currentState, currentState.whoseTurn, (WORKER,))
+        # check each of the player's ants
+        for ant in playerInv.ants:
+            if ant.type == QUEEN:
+                # keep the queen off of the anthill
+                if ant.coords == self.playerAnthill:
+                    score -= QUEEN_ON_HILL_WEIGHT
+                # keep the queen at the edge of the map
+                score -= QUEEN_EDGE_MAP_WEIGHT * ant.coords[1]
+            elif ant.type == WORKER:
+                # encourage building more workers
+                score += BUILD_WORKER_WEIGHT
+                if enemyQueen:###########################################################################################
+                    # move workers towards queen
+                    score -= MOVE_TOWARDS_QUEEN_WEIGHT * (abs(ant.coords[0] - enemyQueen.coords[0]) +
+                                                          abs(ant.coords[1] - enemyQueen.coords[1]))
 
-        # maintain 1 worker and 1 queen whenever possible
-        if (len(workerList) == 1) and (len(playerInv.ants) == 2):
-            stateScore += WORKER_COUNT_WEIGHT
-
-        # encourage dropping off food
-        stateScore += playerInv.foodCount * FOOD_WEIGHT
-
-        # encourage workers to go towards food or dropoff locations appropriately
-        for w in workerList:
-            # pick a destination (goal) for the ant
-            if w.carrying:
-                # encourage picking up food
-                stateScore += CARRY_WEIGHT
-                goals = getConstrList(currentState, currentState.whoseTurn, (ANTHILL, TUNNEL))
-            else:
-                goals = self.foodList
-
-            # encourage moving towards goal
-            distanceToGoal = min(abs(w.coords[0] - g.coords[0]) + abs(w.coords[1] - g.coords[1]) for g in goals)
-            stateScore += DISTANCE_WEIGHT / (distanceToGoal + 1.)
-
-        # keep queen on edge of board
-        stateScore -= (playerQueen.coords[1]) * QUEEN_EDGE_WEIGHT
-
-        # normalization of evaluation score to 0.0 - 1.0 bounds
-        returnVal = (math.atan(stateScore/10000.) + math.pi/2) / math.pi
+        if enemyQueen:###################################################################################################
+            # encourage damaging the enemy queen
+            score += QUEEN_HEALTH_WEIGHT * (UNIT_STATS[QUEEN][HEALTH] - enemyQueen.health)
+        else:
+            score += QUEEN_HEALTH_WEIGHT * UNIT_STATS[QUEEN][HEALTH]
 
         # compare value to neural network output and update weights
-        self.setNeuralInputs(currentState)
-        self.backPropagation(self.getNeuralOutput(), returnVal)
+        self.setNeuralInputs(state)
+        self.backPropagation(self.getNeuralOutput(), score)
 
-        return returnVal
+        # return the evaluation score of the state
+        return score
            
     ##
     # getPlacement
@@ -615,16 +591,16 @@ class AIPlayer(Player):
             moves = []
             for i in range(0, numToPlace):
                 move = None
-                while move == None:
+                while move is None:
                     #Choose any x location
                     x = random.randint(0, 9)
                     #Choose any y location on your side of the board
                     y = random.randint(0, 3)
                     #Set the move if this space is empty
-                    if currentState.board[x][y].constr == None and (x, y) not in moves:
+                    if currentState.board[x][y].constr is None and (x, y) not in moves:
                         move = (x, y)
-                        #Just need to make the space non-empty. So I threw whatever I felt like in there.
-                        currentState.board[x][y].constr == True
+                        if i == 0:
+                            self.playerAnthill = move
                 moves.append(move)
             return moves
         elif currentState.phase == SETUP_PHASE_2:   #stuff on foe's side
@@ -632,16 +608,14 @@ class AIPlayer(Player):
             moves = []
             for i in range(0, numToPlace):
                 move = None
-                while move == None:
+                while move is None:
                     #Choose any x location
                     x = random.randint(0, 9)
                     #Choose any y location on enemy side of the board
                     y = random.randint(6, 9)
                     #Set the move if this space is empty
-                    if currentState.board[x][y].constr == None and (x, y) not in moves:
+                    if currentState.board[x][y].constr is None and (x, y) not in moves:
                         move = (x, y)
-                        #Just need to make the space non-empty. So I threw whatever I felt like in there.
-                        currentState.board[x][y].constr == True
                 moves.append(move)
             return moves
         else:
@@ -683,7 +657,7 @@ class AIPlayer(Player):
     #   enemyLocation - The Locations of the Enemies that can be attacked (Location[])
     ##
     def getAttack(self, currentState, attackingAnt, enemyLocations):
-        #Attack a random enemy.
+        # attack a random enemy
         return enemyLocations[random.randint(0, len(enemyLocations) - 1)]
         
     ##
