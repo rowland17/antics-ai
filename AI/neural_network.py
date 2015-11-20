@@ -19,7 +19,7 @@ DUMP_TRIGGER = 10000
 
 # True: agent loads network weights from file "weights.p" and plays only using neural network output
 # False: agent uses heuristic evaluation function and back propagation to find best network weights
-LOAD_WEIGHTS_FROM_FILE = not True
+LOAD_WEIGHTS_FROM_FILE = True
 
 # a representation of a 'node' in the search tree
 treeNode = {
