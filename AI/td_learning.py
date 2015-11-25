@@ -7,7 +7,7 @@ from AIPlayerUtils import *
 # minimax constants
 
 INFINITY = 9999.9
-MAX_DEPTH = 2
+MAX_DEPTH = 1
 SET_POOL = 4
 
 # neural network constants
@@ -59,7 +59,7 @@ class AIPlayer(Player):
     ##
     def __init__(self, inputPlayerId):
         # initialize the AI in the game
-        super(AIPlayer,self).__init__(inputPlayerId, "The Overmind Slumbers")
+        super(AIPlayer,self).__init__(inputPlayerId, "Tadah, I'm Learning!")
 
         # reference to AIPlayer's anthill structure
         self.playerAnthill = None
