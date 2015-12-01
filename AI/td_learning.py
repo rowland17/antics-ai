@@ -4,38 +4,6 @@ from Construction import Construction
 from Ant import Ant
 from AIPlayerUtils import *
 
-# minimax constants
-
-INFINITY = 9999.9
-MAX_DEPTH = 1
-SET_POOL = 4
-
-# neural network constants
-
-NUM_INPUTS = 8
-NUM_NODES = 2 * NUM_INPUTS
-LEARNING_RATE = 0.1
-DUMP_TRIGGER = 10000
-
-# True: agent loads network weights from file "weights.p" and plays only using neural network output
-# False: agent uses heuristic evaluation function and back propagation to find best network weights
-LOAD_WEIGHTS_FROM_FILE = True
-
-# a representation of a 'node' in the search tree
-treeNode = {
-    # backreference to parent node
-    "parent"            : None,
-    # the Move that would be taken in the given state from the parent node
-    "move"              : None,
-    # the state that would be reached by taking the above move
-    "potential_state"   : None,
-    # an evaluation of the potential_state
-    "state_value"       : 0.0,
-    # alpha/beta values for minimax
-    "alpha"             : -INFINITY,
-    "beta"              : INFINITY,
-}
-
 ##
 # AIPlayer
 #
@@ -59,7 +27,7 @@ class AIPlayer(Player):
     ##
     def __init__(self, inputPlayerId):
         # initialize the AI in the game
-        super(AIPlayer,self).__init__(inputPlayerId, "Tadah, I'm Learning!")
+        super(AIPlayer,self).__init__(inputPlayerId, "Tadah, I'm Learning")
 
         # reference to AIPlayer's anthill structure
         self.playerAnthill = None
@@ -67,56 +35,31 @@ class AIPlayer(Player):
         # initialize our food location tracker to be empty
         self.foodList = []
 
-        # neural network inputs
-        self.inputs = [0] * NUM_INPUTS
-
-        # neural network weights
-        self.firstWeights = []
-        self.secondWeights = []
-
         # neural network node values
-        self.nodes = [0] * NUM_NODES
+        self.nodes = []
 
-        # initialize the neural network
-        if LOAD_WEIGHTS_FROM_FILE:
-            # use weights previously saved to a file
-            f = open("weights.p", 'rb')
-            weightsFromFile = pickle.load(f)
-            self.firstWeights = weightsFromFile[0]
-            self.secondWeights = weightsFromFile[1]
-            f.close()
-        else:
-            print "Finding best weights... (takes a long time)"
-            # use random weights
-            self.initNetworkWeights()
-
-        # tracks number of consecutive accurate network outputs
-        self.goodOutputCount = 0
+        # # initialize the neural network
+        # if LOAD_WEIGHTS_FROM_FILE:
+        #     # use weights previously saved to a file
+        #     f = open("jorgense12_asuncion16_hw8.p", 'rb')
+        #     weightsFromFile = pickle.load(f)
+        #     self.firstWeights = weightsFromFile[0]
+        #     self.secondWeights = weightsFromFile[1]
+        #     f.close()
+        # else:
+        #     print "Finding best weights... (takes a long time)"
+        #     # use random weights
+        #     self.initNetworkWeights()
 
     ##
-    # initNetworkWeights
+    # getSimpleState
     #
-    # Description: Initializes the weights of the neural network to random
-    #   floats between -1 and 1.
-    ##
-    def initNetworkWeights(self):
-        # make firstWeights a list[NUM_NODES][NUM_INPUTS + 1]
-        # and fill it with random numbers
-        self.firstWeights = [[random.random() * 2 - 1 for _ in range(NUM_INPUTS + 1)] for _ in range(NUM_NODES)]
-
-        # make secondWeights a list[NUM_NODES + 1] of random numbers
-        self.secondWeights = [random.random() * 2 - 1 for _ in range(NUM_NODES + 1)]
-
-    ##
-    # setNeuralInputs
+    # Description: Creates a simplified (consolidated) representation of a
+    #   GameState object to be used for TD-Learning.
     #
-    # Description: Given a state, sets the inputs of the neural network
-    #   to floats ranging from 0 to 1.
-    #
-    # Parameters:
-    #   state - The state to create inputs from (GameState)
+    # Return: A list of integers representing the GameState
     ##
-    def setNeuralInputs(self, state):
+    def getSimpleState(self, state):
         # make some references to player inventories and the queens
         playerInv = state.inventories[state.whoseTurn]
         workerList = getAntList(state, state.whoseTurn, [WORKER])
@@ -124,315 +67,72 @@ class AIPlayer(Player):
         playerQueen = playerInv.getQueen()
         enemyQueen = enemyInv.getQueen()
 
-        # INPUT 0: defeat state (true/false)
+        # INT 0: defeat state (true/false)
         if playerQueen is None or enemyInv.foodCount >= 11:
-            self.inputs[0] = 1.
+            int0 = 1
         else:
-            self.inputs[0] = 0.
+            int0 = 0
 
-        # INPUT 1: victory state (true/false)
+        # INT 1: victory state (true/false)
         if enemyQueen is None or playerInv.foodCount >= 11:
-            self.inputs[1] = 1.
+            int1 = 1
         else:
-            self.inputs[1] = 0.
+            int1 = 0
 
-        # INPUT 2: player queen is on anthill (true/false)
+        # INT 2: player queen is on anthill (true/false)
         if playerQueen and playerQueen.coords == self.playerAnthill:
-            self.inputs[2] = 1.
+            int2 = 1
         else:
-            self.inputs[2] = 0.
+            int2 = 0
 
-        # INPUT 3: player queen's Y-coordinate
+        # INT 3: player queen's Y-coordinate
         if playerQueen:
-            self.inputs[3] = playerQueen.coords[1] / 3.
+            int3 = playerQueen.coords[1]
         else:
-            self.inputs[3] = 0.
+            int3 = 0
 
-        # INPUT 4: number of workers
-        self.inputs[4] = min([2, len(workerList)]) / 2.
+        # INT 4: number of workers
+        int4 = min([2, len(workerList)])
 
-        # INPUT 5: worker 1 distance to enemy queen
+        # INT 5: worker 1 distance to enemy queen
         if enemyQueen and len(workerList) > 0:
-            self.inputs[5] = (abs(workerList[0].coords[0] - enemyQueen.coords[0]) +
-                              abs(workerList[0].coords[1] - enemyQueen.coords[1])) / 20.
+            int5 = (abs(workerList[0].coords[0] - enemyQueen.coords[0]) +
+                              abs(workerList[0].coords[1] - enemyQueen.coords[1]))
         else:
-            self.inputs[5] = 0.
+            int5 = 0
 
-        # INPUT 6: worker 2 distance to enemy queen
+        # INT 6: worker 2 distance to enemy queen
         if enemyQueen and len(workerList) > 1:
-            self.inputs[6] = (abs(workerList[1].coords[0] - enemyQueen.coords[0]) +
-                              abs(workerList[1].coords[1] - enemyQueen.coords[1])) / 20.
+            int6 = (abs(workerList[1].coords[0] - enemyQueen.coords[0]) +
+                              abs(workerList[1].coords[1] - enemyQueen.coords[1]))
         else:
-            self.inputs[6] = 0.
+            int6 = 0
 
-        # INPUT 7: enemy queen health
+        # INT 7: enemy queen health
         if enemyQueen:
-            self.inputs[7] = (enemyQueen.health + 0.) / UNIT_STATS[QUEEN][HEALTH]
+            int7 = enemyQueen.health
         else:
-            self.inputs[7] = 0.
+            int7 = 0
+
+        return int0,int1,int2,int3,int4,int5,int6,int7
 
     ##
-    # getNeuralOutput
+    # getReward
     #
-    # Description: Generates an output from the neural network using the
-    #   current inputs and weights.
-    #
-    # Return: The output of the node (float)
-    ##
-    def getNeuralOutput(self):
-        # init sum of inputs to final node
-        finalSum = 0
-
-        # for each first-layer node
-        for x in range(NUM_NODES):
-            # init sum of inputs to current node
-            nodeSum = 0
-
-            # for each input to current node, add weighted value to sum
-            for i in range(NUM_INPUTS):
-                nodeSum += self.firstWeights[x][i] * self.inputs[i]
-
-            # add weighted value for current node's bias input
-            nodeSum += self.firstWeights[i][-1]
-
-            # set the node's value using g(x)
-            self.nodes[x] = self.activationFunction(nodeSum)
-
-            # add this node's weighted output to final node's sum
-            finalSum += self.secondWeights[x] * self.nodes[x]
-
-        # add weighted value for final node's bias input
-        finalSum += self.secondWeights[-1]
-
-        # apply activation function to find final node output
-        return self.activationFunction(finalSum)
-
-    ##
-    # activationFunction
-    #
-    # Description: Finds the output of a node.
+    # Description: Finds the reward value for being in a particular simple state.
     #
     # Parameters:
-    #   nodeValue - The sum of the weighted inputs of the node (float)
+    #   stateTup - A tuple representing a simple/consolidated GameState
     #
-    # Return: The output of the node (float)
+    # Return: The reward value for the state (float)
     ##
-    def activationFunction(self, nodeValue):
-        # g(x) = 1 / (1 + e^(-x))
-        return 1 / (1 + math.exp(-nodeValue))
-
-    ##
-    # backPropagation
-    #
-    # Description: Updates the weights of the neural network based on the
-    #   difference between the target output value and the actual output value.
-    #
-    # Parameters:
-    #   actualVal - the actual value generated by the network (float)
-    #   targetVal - the desired output of the network (float)
-    ##
-    def backPropagation(self, actualVal, targetVal):
-        # calculate the final node's Err and gamma values
-        finalErr = targetVal - actualVal
-
-        # track how many consecutive accurate outputs our network has had
-        if abs(finalErr) > 0.01:
-            # bad output, reset counter
-            self.goodOutputCount = 0
+    def getReward(self, stateTup):
+        if stateTup[0] == 1:
+            return -1.
+        elif stateTup[1] == 1:
+            return 1.
         else:
-            # good output
-            self.goodOutputCount += 1
-            if self.goodOutputCount > DUMP_TRIGGER:
-                # once we get enough consecutive good-outputs,
-                # write the current weights to file and exit
-                f = open("AI/weights.p", 'wb')
-                f.truncate()
-                pickle.dump((self.firstWeights,self.secondWeights), f, 0)
-                f.close()
-                print "Weights outputted to 'weights.p'"
-                sys.exit()
-
-        # do back propagation
-
-        finalGamma = actualVal * (1-actualVal) * finalErr
-
-        err = []
-        gamma = []
-
-        # for each first-layer node
-        for n in range(NUM_NODES):
-            # calculate the node's Err and gamma
-            err.append(self.secondWeights[n] * finalGamma)
-            gamma.append(self.nodes[n] * (1 - self.nodes[n]) * err[n])
-
-            # update the weight of the current node's output
-            # (which is a final-node input)
-            self.secondWeights[n] += LEARNING_RATE * finalGamma * self.nodes[n]
-
-        # update the bias weight for the final node
-        self.secondWeights[-1] += LEARNING_RATE * finalGamma
-
-        # for each first-layer node
-        for n in range(NUM_NODES):
-            # update the bias weight
-            self.firstWeights[n][-1] += LEARNING_RATE * gamma[n]
-
-            # update the input weights
-            for i in range(NUM_INPUTS):
-                self.firstWeights[n][i] += LEARNING_RATE * gamma[n] * self.inputs[i]
-    
-    ##
-    # evaluateNodes
-    #
-    # Description: Takes a list of nodes and returns the min or
-    # max node depending on whose turn it is
-    #
-    # Parameters:
-    #   nodes - The list of nodes to evaluate
-    #
-    # Return: The appropriate min or max node
-    ##
-    def evaluateNodes(self, nodes):
-        # look through the nodes and find the best min/max state value
-        # based on the appropriate alpha/beta score and whose turn it is
-        if self.playerId == nodes[0]['potential_state'].whoseTurn:
-            # MAX node
-            maxScore = max(n['alpha'] for n in nodes)
-            bestNodes = [n for n in nodes if n['alpha'] == maxScore]
-            return random.choice(bestNodes)
-        else:
-            # MIN node
-            minScore = min(n['beta'] for n in nodes)
-            bestNodes = [n for n in nodes if n['beta'] == minScore]
-            return random.choice(bestNodes)
-    
-    ##
-    # exploreTree
-    #
-    # Description: Explores the move search tree recursively and
-    #   returns the node with the Move that leads to the best branch
-    #   in the tree using alpha/beta pruning
-    #
-    # Parameters:
-    #   currentNode - The State being 'searched' from
-    #   currentDepth - The depth of the recursive tree search
-    #
-    # Return: A node containing the best predicted Move
-    ##
-    def exploreTree(self, currentNode, currentDepth):
-
-        # create alias lookup/reference variables
-        currentState = currentNode["potential_state"]
-        whoseTurn = currentState.whoseTurn
-
-        # determine whether this is a Min or a Max player
-        isMax = whoseTurn == self.playerId
-
-        # generate a list of Nodes from the possible Moves
-        possibleNodes = []
-        for m in listAllLegalMoves(currentState):
-
-            #ignore moving the queen if she is not on structure
-            if m.moveType == MOVE_ANT:
-                if getAntAt(currentState, m.coordList[0]) == QUEEN:
-                    if getConstrAt(currentState, m.coordList[0]) is None:
-                        continue
-
-            # initialize the node properties
-            node = treeNode.copy()
-            node["parent"] = currentNode
-            node["move"] = m
-            node["potential_state"] = self.getFutureState(currentState, m)
-            if LOAD_WEIGHTS_FROM_FILE:
-                # use neural network for state eval if loaded
-                self.setNeuralInputs(node["potential_state"])
-                node["state_value"] = self.getNeuralOutput()
-            else:
-                # otherwise, use the heuristic function
-                node["state_value"] = self.evaluateState(node["potential_state"])
-            possibleNodes.append(node)
-
-        # intelligently select a subset of nodes to expand
-        nodesToIterate = heapq.nlargest(SET_POOL, possibleNodes, key=lambda x: x["state_value"])
-
-        # expand and evaluate the subnodes for this node
-        for newNode in nodesToIterate:
-
-            # BASE STEP (leaf node)
-            if currentDepth == MAX_DEPTH:
-
-                # evaluate subnode and get score
-                if LOAD_WEIGHTS_FROM_FILE:
-                    # use neural network for state eval if loaded
-                    self.setNeuralInputs(newNode["potential_state"])
-                    nodeVal = self.getNeuralOutput()
-                else:
-                    # otherwise, use the heuristic function
-                    nodeVal = self.evaluateState(newNode["potential_state"])
-
-                # set alpha/beta based whether MAX or MIN node
-                if isMax:
-                    newNode["alpha"] = nodeVal
-                else:
-                    newNode["alpha"] = 0 - nodeVal
-                newNode["beta"] = newNode["alpha"]
-
-                # flip whoseTurn if this an END move and reset the ants so that they can move
-                # (this must be done after evaluateState so that evaluateState knows whose turn it is)
-                if newNode["move"].moveType == END:
-                    newNode["potential_state"].whoseTurn = 1 - newNode["potential_state"].whoseTurn
-                    for ant in newNode["potential_state"].inventories[newNode["potential_state"].whoseTurn].ants:
-                        ant.hasMoved = False
-
-            # RECURSIVE STEP (branch node)
-            else:
-                # get a back-reference to the parent node
-                parentNode = currentNode["parent"]
-
-                # do alpha/beta pruning if we're not the root node
-                if parentNode:
-                    # parent is a MAX and current node is a MIN
-                    if parentNode["potential_state"].whoseTurn == self.playerId:
-                        if (not isMax) and parentNode["alpha"] > currentNode["beta"]:
-                            break
-                    # parent is a MIN and current node is a MAX
-                    elif isMax and parentNode["beta"] < currentNode["alpha"]:
-                            break
-
-                # flip whoseTurn if this an END move and reset the ants so that they can move
-                # (this must be done after evaluateState so that evaluateState knows whose turn it is)
-                if newNode["move"].moveType == END:
-                    newNode["potential_state"].whoseTurn = 1 - newNode["potential_state"].whoseTurn
-                    for ant in newNode["potential_state"].inventories[newNode["potential_state"].whoseTurn].ants:
-                        ant.hasMoved = False
-
-                # recurse on the subnode
-                self.exploreTree(newNode, currentDepth + 1)
-
-            # update our alpha/beta values based on our expanded subnode's values
-            if isMax:
-                # current node is a MAX node
-                if newNode["potential_state"].whoseTurn != self.playerId:
-                    # subnode is a MIN node
-                    if newNode["beta"] > currentNode["alpha"]:
-                        currentNode["alpha"] = newNode["beta"]
-                else:
-                    # subnode is a MAX node
-                    if newNode["alpha"] > currentNode["alpha"]:
-                        currentNode["alpha"] = newNode["alpha"]
-            else:
-                # current node is a MIN node
-                if newNode["potential_state"].whoseTurn == self.playerId:
-                    # subnode is a MAX node
-                    if newNode["alpha"] < currentNode["beta"]:
-                        currentNode["beta"] = newNode["alpha"]
-                else:
-                    # subnode is a MIN node
-                    if newNode["beta"] < currentNode["beta"]:
-                        currentNode["beta"] = newNode["beta"]
-
-        # return our best subnode
-        return self.evaluateNodes(nodesToIterate)
+            return -.01
 
     ##
     # getFutureState
@@ -571,10 +271,6 @@ class AIPlayer(Player):
         else:
             score += QUEEN_HEALTH_WEIGHT * UNIT_STATS[QUEEN][HEALTH]
 
-        # compare value to neural network output and update weights
-        self.setNeuralInputs(state)
-        self.backPropagation(self.getNeuralOutput(), score)
-
         # return the evaluation score of the state
         return score
            
@@ -640,19 +336,25 @@ class AIPlayer(Player):
     # Return: The Move to be made
     ##
     def getMove(self, currentState):        
-        #fill the food locations list
-        if not self.foodList:
-            for f in getConstrList(currentState, NEUTRAL, (FOOD,)):
-                self.foodList.append(f)
+        # #fill the food locations list
+        # if not self.foodList:
+        #     for f in getConstrList(currentState, NEUTRAL, (FOOD,)):
+        #         self.foodList.append(f)
+        #
+        # self.setNeuralInputs(currentState)
 
-        self.setNeuralInputs(currentState)
-
-        # create a root node to build our search tree from
-        rootNode = treeNode.copy()
-        rootNode["potential_state"] = currentState
+        # # create a root node to build our search tree from
+        # rootNode = treeNode.copy()
+        # rootNode["potential_state"] = currentState
 
         # return the best move, found by recursively searching potential moves
-        return self.exploreTree(rootNode, 0)["move"]
+        #best = self.exploreTree(rootNode, 0)["move"]
+        best = max([(self.evaluateState(self.getFutureState(currentState, m)), m) for m in listAllLegalMoves(currentState)])[1]
+        if best.moveType == END:
+            print "END TURN"
+        else:
+            print "SIMPLE: %s" % (self.getSimpleState(self.getFutureState(currentState, best)),)
+        return best
 
     ##
     # getAttack
