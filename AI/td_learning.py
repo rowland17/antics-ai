@@ -4,8 +4,10 @@ from Construction import Construction
 from Ant import Ant
 from AIPlayerUtils import *
 
-MAX_RAND_MOVES = 1000000
-GAMMA = .95
+# TD-Learning constants
+TDL_RAND_MOVE_FACTOR = 1000
+TDL_MAX_RAND_MOVES = TDL_RAND_MOVE_FACTOR**2
+TDL_GAMMA = .95
 
 ##
 # AIPlayer
@@ -47,13 +49,12 @@ class AIPlayer(Player):
         # load the state utilities from file if possible
         try:
             with open("utils.p", 'rb') as f:
+                # use pickling to deserialize the saved object
                 data = pickle.load(f)
                 self.stateUtils = data[0]
                 self.moveCount = data[1]
-                print "Loading utils file..."
-                print `len(self.stateUtils)` + " entries loaded."
         except IOError:
-            print "No utils file, starting from scratch..."
+            pass
 
     ##
     # getSimpleState
@@ -61,7 +62,7 @@ class AIPlayer(Player):
     # Description: Creates a simplified (consolidated) representation of a
     #   GameState object to be used for TD-Learning.
     #
-    # Return: A list of integers representing the GameState
+    # Return: A tuple of 7 integers representing the GameState
     ##
     def getSimpleState(self, state):
         # make some references to player inventories and the queens
@@ -95,7 +96,7 @@ class AIPlayer(Player):
         # INT 4: number of workers
         int4 = min([2, len(workerList)])
 
-        # INT 5: worker 1 distance to enemy queen
+        # INT 5: sum of first two workers' distance to enemy queen
         if enemyQueen and len(workerList) > 0:
             int5 = (abs(workerList[0].coords[0] - enemyQueen.coords[0]) +
                               abs(workerList[0].coords[1] - enemyQueen.coords[1]))
@@ -111,6 +112,7 @@ class AIPlayer(Player):
         else:
             int6 = 0
 
+        # return simple state as a tuple
         return int0,int1,int2,int3,int4,int5,int6
 
     ##
@@ -125,31 +127,50 @@ class AIPlayer(Player):
     ##
     def getReward(self, stateTup):
         if stateTup[0] == 1:
+            # victory, return 1.0
             return 1.
         else:
+            # otherwise, return -0.01
+            # (we will never see a defeat state)
             return -.01
 
     ##
-    # ###################################################################################################################
+    # chooseNextMove
+    #
+    # Description: Finds the next move to make based on random chance or
+    #   utility.
+    #
+    # Parameters:
+    #   currentState - the GameState we are choosing a move for
+    #
+    # Return: The appropriate Move to make
+    ##
     def chooseNextMove(self, currentState):
+        moves = listAllLegalMoves(currentState)
+
+        # decide whether to move randomly
         randChance = self.randMoveChance()
         if random.random() < randChance:
-            return random.choice(listAllLegalMoves(currentState))
+            # return a random move
+            return random.choice(moves)
+
+        # otherwise, find the best move based on utility
+
+        # pair each move with its resulting simple-state (state, move)
+        simpleStates = zip([s for s in [self.getSimpleState(self.getFutureState(currentState, m))
+                                 for m in moves]], moves)
+
+        # find the subset of simpleStates that are already in our utility table
+        # and pair their utilities with the corresponding moves (utility, move)
+        seenStates = [(self.stateUtils[s],m) for s,m in simpleStates if
+                    s in self.stateUtils]
+
+        if len(seenStates) > 0:
+            # find the max utility simple-state and return the corresponding move
+            return max(seenStates)[1]
         else:
-            legals = listAllLegalMoves(currentState)
-            i = 0
-            nextMove = legals[i]
-            while self.getSimpleState(self.getFutureState(currentState, nextMove)) not in self.stateUtils:
-                i += 1
-                if i >= len(legals):
-                    return random.choice(listAllLegalMoves(currentState))
-                nextMove = legals[i]
-            for m in legals:
-                mSimple = self.getSimpleState(self.getFutureState(currentState, m))
-                nextMoveSimple = self.getSimpleState(self.getFutureState(currentState, nextMove))
-                if mSimple in self.stateUtils and nextMoveSimple in self.stateUtils and self.stateUtils[mSimple] > self.stateUtils[nextMoveSimple]:
-                    nextMove = m
-            return nextMove
+            # all legal moves lead to unseen states, so return a random move
+            return random.choice(moves)
 
     ##
     # getFutureState
@@ -251,41 +272,46 @@ class AIPlayer(Player):
     # Return: A list of coordinates of where the constructions are to be placed
     ##
     def getPlacement(self, currentState):
-        #implemented by students to return their next move
-        if currentState.phase == SETUP_PHASE_1:    #stuff on my side
-            numToPlace = 11
-            moves = []
-            for i in range(0, numToPlace):
+        moves = []
+
+        if currentState.phase == SETUP_PHASE_1:
+            # place player buildings
+
+            for i in range(11):
                 move = None
                 while move is None:
-                    #Choose any x location
+                    # find a random space on player side
                     x = random.randint(0, 9)
-                    #Choose any y location on your side of the board
                     y = random.randint(0, 3)
-                    #Set the move if this space is empty
+
+                    # check that the space is empty
                     if currentState.board[x][y].constr is None and (x, y) not in moves:
                         move = (x, y)
                         if i == 0:
+                            # save anthill location for later
                             self.playerAnthill = move
+
+                # add the space to our list
                 moves.append(move)
             return moves
-        elif currentState.phase == SETUP_PHASE_2:   #stuff on foe's side
-            numToPlace = 2
-            moves = []
-            for i in range(0, numToPlace):
+
+        elif currentState.phase == SETUP_PHASE_2:
+            # place enemy food
+
+            for _ in range(2):
                 move = None
                 while move is None:
-                    #Choose any x location
+                    # find a random space on enemy side
                     x = random.randint(0, 9)
-                    #Choose any y location on enemy side of the board
                     y = random.randint(6, 9)
-                    #Set the move if this space is empty
+
+                    # check that the space is empty
                     if currentState.board[x][y].constr is None and (x, y) not in moves:
                         move = (x, y)
+
+                # add the space to our list
                 moves.append(move)
             return moves
-        else:
-            return [(0, 0)]
     
     ##
     # getMove
@@ -297,34 +323,37 @@ class AIPlayer(Player):
     #
     # Return: The Move to be made
     ##
-    def getMove(self, currentState):        
+    def getMove(self, currentState):
         nextMove = self.chooseNextMove(currentState)
 
+        # lookup current state in utility table
         simpleState = self.getSimpleState(currentState)
-        util = None
         if simpleState in self.stateUtils:
+            # state found
             utilTup = self.stateUtils[simpleState]
             util = utilTup[0]
             stateCount = utilTup[1]
         else:
+            # state not found, so add it
             util = self.getReward(simpleState)
             self.stateUtils[simpleState] = (util, 1)
             stateCount = 1
 
+        # lookup next state (from chosen move) in utility table
         nextSimpleState = self.getSimpleState(self.getFutureState(currentState, nextMove))
         if nextSimpleState in self.stateUtils:
+            # state found
             nextUtil = self.stateUtils[nextSimpleState][0]
         else:
+            # state not found, so add it
             nextUtil = self.getReward(nextSimpleState)
             self.stateUtils[nextSimpleState] = (nextUtil, 1)
 
-        self.stateUtils[simpleState] = (util + self.alpha(stateCount) * (self.getReward(simpleState) + GAMMA * nextUtil - util), stateCount + 1)
+        # set current state's utility with the utility function
+        self.stateUtils[simpleState] = (util + self.alpha(stateCount) *
+                    (self.getReward(simpleState) + TDL_GAMMA * nextUtil - util), stateCount + 1)
 
-        # if nextMove.moveType == END:
-        #     print "END TURN"
-        # else:
-        #     print "SIMPLE: %s" % (self.getSimpleState(self.getFutureState(currentState, nextMove)),)
-
+        # increment move counters for debugging
         self.moveCount += 1
         self.moveCountThisGame += 1
 
@@ -334,33 +363,40 @@ class AIPlayer(Player):
     # alpha
     #
     # Description: Finds the learning rate for a state given how many times
-    #   we've visited it.
+    #   we've visited it. This rate decreases with more visits.
     #
     # Parameters:
     #   visited - The number of times we've visited the state
     #
-    # Return: The alpha value for that state
+    # Return: The alpha value for that state (float)
     ##
     def alpha(self, visited):
-        return 1./math.sqrt(1. + (visited - 1)/10.)#######################################################################################
+        return 1./math.sqrt(1. + (visited - 1)/10.)
 
     ##
     # randMoveChance
     #
-    # Description: #######################################################################################################
+    # Description: Finds the chance of making a random move given how many
+    #   total moves the learning agent has made. This chance decreases
+    #   with more moves.
+    #
+    # Return: The chance of making a random move (0.0 to 1.0)
     ##
     def randMoveChance(self):
-        return 1. - math.sqrt(self.moveCount)/1000. if self.moveCount < MAX_RAND_MOVES else 0.##############################
+        if self.moveCount < TDL_MAX_RAND_MOVES:
+            return 1. - math.sqrt(self.moveCount)/TDL_RAND_MOVE_FACTOR
+        else:
+            return 0.
 
     ##
     # getAttack
     #
-    # Description: Gets the attack to be made from the Player
+    # Description: Gets the attack to be made by the Player.
     #
     # Parameters:
     #   currentState - A clone of the current state (GameState)
     #   attackingAnt - The ant currently making the attack (Ant)
-    #   enemyLocation - The Locations of the Enemies that can be attacked (Location[])
+    #   enemyLocation - The locations of the enemies that can be attacked (Location[])
     ##
     def getAttack(self, currentState, attackingAnt, enemyLocations):
         # attack a random enemy
@@ -375,17 +411,12 @@ class AIPlayer(Player):
     #   hasWon - True if the player won the game. False if they lost (Boolean)
     #
     def registerWin(self, hasWon):
-        # for k in self.stateUtils:
-        #     print `k` + `self.stateUtils[k]`
-        #     print self.alpha(self.stateUtils[k][1])
-        print "Util table size: " + `len(self.stateUtils)`
-        print "Final move count this game: " + `self.moveCountThisGame`
-        print "Total agent move count: " + `self.moveCount`
-        print "Random move chance: " + `self.randMoveChance()`
+        # reset move count for debugging
         self.moveCountThisGame = 0
+
+        # write utility table to file
         try:
             with open("AI/utils.p", 'w+b') as f:
                 pickle.dump((self.stateUtils, self.moveCount), f, 0)
-                print "Utils written to file."
         except IOError:
             print "ERROR: Failed writing utils to file."
