@@ -32,7 +32,7 @@ def legalCoord(coord):
         if (len(coord) != 2):
             return False
     except TypeError:
-        print "ERROR:  parameter to legalCoord was not a tuple or list"
+        print( "ERROR:  parameter to legalCoord was not a tuple or list")
         raise
 
     x = coord[0]
@@ -533,7 +533,7 @@ def asciiPrintState(state):
         colIndexes = " 9876543210"
 
     #print the board with a border of column/row indexes
-    print colIndexes
+    print( colIndexes)
     index = 0              #row index
     for x in coordRange:
         row = str(x)
@@ -547,11 +547,11 @@ def asciiPrintState(state):
                     row += charRepConstr(constr)
                 else:
                     row += "."
-        print row + str(x)
+        print( row + str(x))
         index += 1
-    print colIndexes
+    print (colIndexes)
 
     #print food totals
     p1Food = state.inventories[0].foodCount
     p2Food = state.inventories[1].foodCount
-    print " food: " + str(p1Food) + "/" + str(p2Food)
+    print( " food: " + str(p1Food) + "/" + str(p2Food))

@@ -419,4 +419,4 @@ class AIPlayer(Player):
             with open("AI/utils.p", 'w+b') as f:
                 pickle.dump((self.stateUtils, self.moveCount), f, 0)
         except IOError:
-            print "ERROR: Failed writing utils to file."
+            print ("ERROR: Failed writing utils to file.")

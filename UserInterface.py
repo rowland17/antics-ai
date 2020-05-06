@@ -54,105 +54,105 @@ class UserInterface(object):
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitBuild(self):
-        print "Clicked SUBMIT BUILD"
+        print( "Clicked SUBMIT BUILD")
     
     ##
     #submitEndTurn
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitEndTurn(self):
-        print "Clicked SUBMIT END TURN"
+        print( "Clicked SUBMIT END TURN")
     
     ##
     #gameModeTournament
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def gameModeTournament(self):
-        print "Clicked GAME MODE TOURNAMENT"
+        print( "Clicked GAME MODE TOURNAMENT")
     
     ##
     #gameModeHumanAI
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def gameModeHumanAI(self):
-        print "Clicked GAME MODE HUMAN AI"
+        print( "Clicked GAME MODE HUMAN AI")
     
     ##
     #gameModeAIAI
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def gameModeAIAI(self):
-        print "Clicked GAME MODE AI AI"
+        print( "Clicked GAME MODE AI AI")
     
     ##
     #startGame
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def startGame(self):
-        print "Clicked START GAME"
+        print( "Clicked START GAME")
     
     ##
     #submitNext
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitNext(self):
-        print "Clicked NEXT"
+        print( "Clicked NEXT")
     
     ##
     #submitContinue
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitContinue(self):
-        print "Clicked CONTINUE"
+        print( "Clicked CONTINUE")
     
     ##
     #submitWorker
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitWorker(self):
-        print "Clicked WORKER"
+        print( "Clicked WORKER")
     
     ##
     #submitDrone
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitDrone(self):
-        print "Clicked DRONE"
+        print( "Clicked DRONE")
     
     ##
     #submitDSoldier
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitDSoldier(self):
-        print "Clicked DIRECT SOLDIER"
+        print( "Clicked DIRECT SOLDIER")
     
     ##
     #submitISoldier
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitISoldier(self):
-        print "Clicked INDIRECT SOLDIER"
+        print( "Clicked INDIRECT SOLDIER")
     
     ##
     #submitNoBuild
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitNoBuild(self):
-        print "Clicked BUILD NOTHING"
+        print( "Clicked BUILD NOTHING")
     
     ##
     #submitStartTournament
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitStartTournament(self):
-        print "Clicked START TOURNAMENT"
+        print( "Clicked START TOURNAMENT")
     
     ##
     #submitStopTournament
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitStopTournament(self):
-        print "Clicked STOP TOURNAMENT"
+        print( "Clicked STOP TOURNAMENT")
     
     ##
     #locationClicked
@@ -162,7 +162,7 @@ class UserInterface(object):
     #   coords - the cell on the board that was clicked.((int,int))
     ##
     def locationClicked(self, coords):
-        print "Clicked LOCATION " + str(coords)
+        print( "Clicked LOCATION " + str(coords))
     
     ##
     #checkBoxClicked
@@ -172,14 +172,14 @@ class UserInterface(object):
     #   index - the index into the array self.allAIs.(int)
     ##
     def checkBoxClicked(self, index):
-        print "CLICKED CHECKBOX NUMBER " + str(index)
+        print( "CLICKED CHECKBOX NUMBER " + str(index))
     
     ##
     #submitSelectedAIs
     #Description: Dummy method used as a placeholder for the event handling methods that will be passed in from Game.py.
     ##
     def submitSelectedAIs(self):
-        print "CLICKED SUBMIT SELECTED AIS"
+        print( "CLICKED SUBMIT SELECTED AIS")
     
     ##
     #notify
@@ -314,11 +314,11 @@ class UserInterface(object):
         #Draw current health across the top from the left.
         healthBox = Rect(0,0,10,6)
         healthPerimiter = Rect(0,0,12,8)
-        for x in xrange(0, UNIT_STATS[ant.type][HEALTH]):
+        for x in range(0, UNIT_STATS[ant.type][HEALTH]):
             pygame.draw.rect(self.screen, DARK_GREEN, healthPerimiter.move(Xpixel + CELL_SIZE.width - 15 * (x + 1) - 1, Ypixel + 1))
-        for x in xrange(0, ant.health):
+        for x in range(0, ant.health):
             pygame.draw.rect(self.screen, LIGHT_GREEN, healthBox.move(Xpixel + CELL_SIZE.width - 15 * (x + 1), Ypixel + 2))
-        for x in xrange(ant.health, UNIT_STATS[ant.type][HEALTH]):
+        for x in range(ant.health, UNIT_STATS[ant.type][HEALTH]):
             pygame.draw.rect(self.screen, DARK_RED, healthBox.move(Xpixel + CELL_SIZE.width - 15 * (x + 1), Ypixel + 2))
         #Draw isCarrying marker in lower right
         if ant.carrying:
@@ -373,7 +373,7 @@ class UserInterface(object):
             #Draw the text surface.
             self.screen.blit(label2, destination2)
         else:
-            print "Oh my gawd my code broke in UserInterface.drawCaptureHealth"
+            print( "Oh my gawd my code broke in UserInterface.drawCaptureHealth")
     
     ##
     #drawCaptureHealth
@@ -522,7 +522,7 @@ class UserInterface(object):
         buttonIndex = maxRows if maxRows < len(safeList) else len(safeList)
         buttonY = YStartPixel + buttonIndex * (self.checkBoxRect.height + FIELD_SPACING)
         #Reset the location of the button.
-        key = self.submitSelected.keys()[0]
+        key = list(self.submitSelected.keys())[0]
         self.submitSelected[key][0] = (XStartPixel, buttonY)
         #And last but not least, draw the "Submit Selected" button below the end of the first column.
         self.drawButton(key, self.submitSelected)
@@ -563,7 +563,7 @@ class UserInterface(object):
         #Draw the shade for a cell highlighted for attacks if currentLoc is in attackList
         drawList.append(True if currentLoc.coords in self.attackList else False)
         #Draw the background shades
-        for index in xrange(0, len(drawList)):
+        for index in range(0, len(drawList)):
             if drawList[index]:
                 pygame.draw.rect(self.screen, colorList[index], shadeRect.move(shadeXpixel, shadeYpixel))
         #Draw the cell itself.
@@ -574,7 +574,7 @@ class UserInterface(object):
         if currentLoc.ant != None:
             self.drawAnt(currentLoc.ant, (col, row))
         #Draw the translucent foreground shades.
-        for index in xrange(0, len(drawList)):
+        for index in range(0, len(drawList)):
             if drawList[index]:
                 self.shaderTex.fill(colorList[index])
                 self.screen.blit(self.shaderTex, CELL_SIZE.move(Xpixel, Ypixel))
@@ -614,8 +614,8 @@ class UserInterface(object):
             pygame.draw.rect(self.screen, LIGHT_BLUE, self.outerRect.move((0, self.p2RectYOffset)))
             pygame.draw.rect(self.screen, BLACK, self.innerRect.move((CELL_SPACING, CELL_SPACING + self.p2RectYOffset)))
             #Draw the cells themselves.
-            for col in xrange(0, len(currentState.board)):
-                for row in xrange(0, len(currentState.board[col])):
+            for col in range(0, len(currentState.board)):
+                for row in range(0, len(currentState.board[col])):
                     self.drawCell(currentState.board[col][row])
             #Draw the captureHealth of any anthill being captured.
             captureVals = self.getCaptureValues(currentState)
@@ -692,7 +692,7 @@ class UserInterface(object):
                 if checkIndex < len(safeList) and checkIndex >= 0:
                     #If the mode is human mode, there is an invisible player (the human) that I don't want clicked.
                     checkIndex += 1 if mode == HUMAN_MODE else 0
-                    self.checkBoxClicked(checkIndex)
+                    self.checkBoxClicked(int(checkIndex))
     
     ##
     #handleHotkey
@@ -775,7 +775,7 @@ class UserInterface(object):
                 elif self.choosingAIs:
                     self.handleAICheckList(event, mode)
                     #Handle the AI selecting button.
-                    AIKey = self.submitSelected.keys()[0]
+                    AIKey = list(self.submitSelected.keys())[0]
                     if self.buttonRect.move(self.submitSelected[AIKey][0]).collidepoint(event.pos):
                         self.handleButton(AIKey, 0, self.submitSelected)
             elif event.type == pygame.MOUSEBUTTONUP:
@@ -789,7 +789,7 @@ class UserInterface(object):
                         self.handleButton(key, 1, relButtons)
                 #Handle the AI selecting button.
                 if self.choosingAIs:
-                    AIKey = self.submitSelected.keys()[0]
+                    AIKey = list(self.submitSelected.keys())[0]
                     if self.buttonRect.move(self.submitSelected[AIKey][0]).collidepoint(event.pos):
                         self.handleButton(AIKey, 1, self.submitSelected)
                 #Check to see if text box should be selected or deselected
@@ -812,7 +812,7 @@ class UserInterface(object):
                         relButtons[key][1] = 1
                 #Handle the AI selecting button.
                 if self.choosingAIs:
-                    AIKey = self.submitSelected.keys()[0]
+                    AIKey = list(self.submitSelected.keys())[0]
                     if self.buttonRect.move(self.submitSelected[AIKey][0]).collidepoint(event.pos):
                         self.submitSelected[AIKey][1] = 0
                     else:

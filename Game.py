@@ -61,10 +61,10 @@ class Game(object):
                             index = self.players.index(player)
                             break
                     if (index < 0):
-                        print "ERROR:  AI '" + ainame + "' not found."
-                        print "Please specify one of the following:"
+                        print( "ERROR:  AI '" + ainame + "' not found.")
+                        print( "Please specify one of the following:")
                         for player in self.players[1:]:
-                            print '    "' + player[0].author + '"'
+                            print( '    "' + player[0].author + '"')
                         return
                     #select the specified AI and click "Submit"
                     self.checkBoxClickedCallback(index)
@@ -120,7 +120,7 @@ class Game(object):
         constrsToPlace = []
         constrsToPlace += [Building(None, ANTHILL, PLAYER_ONE)]
         constrsToPlace += [Building(None, TUNNEL, PLAYER_ONE)]
-        constrsToPlace += [Construction(None, GRASS) for i in xrange(0,9)]
+        constrsToPlace += [Construction(None, GRASS) for i in range(0,9)]
     
         while not self.gameOver:
             if self.state.phase == MENU_PHASE:
@@ -197,13 +197,13 @@ class Game(object):
                             if self.state.whoseTurn == PLAYER_ONE:
                                 constrsToPlace += [Building(None, ANTHILL, PLAYER_TWO)]
                                 constrsToPlace += [Building(None, TUNNEL, PLAYER_TWO)]
-                                constrsToPlace += [Construction(None, GRASS) for i in xrange(0,9)]
+                                constrsToPlace += [Construction(None, GRASS) for i in range(0,9)]
                             elif self.state.whoseTurn == PLAYER_TWO:
-                                constrsToPlace += [Construction(None, FOOD) for i in xrange(0,2)]
+                                constrsToPlace += [Construction(None, FOOD) for i in range(0,2)]
                                 self.state.phase = SETUP_PHASE_2
                         elif self.state.phase == SETUP_PHASE_2:
                             if self.state.whoseTurn == PLAYER_ONE:
-                                constrsToPlace += [Construction(None, FOOD) for i in xrange(0,2)]
+                                constrsToPlace += [Construction(None, FOOD) for i in range(0,2)]
                             elif self.state.whoseTurn == PLAYER_TWO:
                                 #if we're finished placing, add in queens and move to play phase
                                 p1inventory = self.state.inventories[PLAYER_ONE]
@@ -273,7 +273,7 @@ class Game(object):
                 move = currentPlayer.getMove(theState)
                 
                 if move != None and move.coordList != None:
-                    for i in xrange(0,len(move.coordList)):
+                    for i in range(0,len(move.coordList)):
                         #translate coords of move to match player
                         move.coordList[i] = self.state.coordLookup(move.coordList[i], self.state.whoseTurn)
                 
@@ -571,7 +571,7 @@ class Game(object):
     #
     ##
     def initGame(self):
-        board = [[Location((col, row)) for row in xrange(0,BOARD_LENGTH)] for col in xrange(0,BOARD_LENGTH)]
+        board = [[Location((col, row)) for row in range(0,BOARD_LENGTH)] for col in range(0,BOARD_LENGTH)]
         p1Inventory = Inventory(PLAYER_ONE, [], [], 0)
         p2Inventory = Inventory(PLAYER_TWO, [], [], 0)
         neutralInventory = Inventory(NEUTRAL, [], [], 0)
@@ -639,7 +639,7 @@ class Game(object):
             if re.match(".*\.py$", file):
                 moduleName = file[:-3]
                 #Check to see if the file is already loaded.
-                temp = __import__(moduleName, globals(), locals(), [], -1)
+                temp = __import__(moduleName, globals(), locals(), [])
                 #If the module has already been imported into this python instance, reload it.
                 if temp == None:
                     temp = reload(globals()[moduleName])
@@ -671,7 +671,7 @@ class Game(object):
         currentPlayer = self.currentPlayers[self.state.whoseTurn]
         if type(currentPlayer) is HumanPlayer.HumanPlayer:
             return
-        print msg
+        print (msg)
         
     ##
     #isValidMove(Move)
@@ -1198,7 +1198,7 @@ class Game(object):
             errorMsg += "invalid attack\n"
             errorMsg += "(" + str(info[0]) + ", " + str(info[1]) + ")"
     
-        print errorMsg
+        print (errorMsg)
         self.setWinner((self.state.whoseTurn + 1) % 2)
 
     ############################################################# 

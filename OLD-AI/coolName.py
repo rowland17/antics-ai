@@ -463,7 +463,7 @@ class AIPlayer(Player):
 #    False if anything is wrong else True
 ##
 def unitTest1():
-    board = [[Location((col, row)) for row in xrange(0,BOARD_LENGTH)] for col in xrange(0,BOARD_LENGTH)]
+    board = [[Location((col, row)) for row in range(0,BOARD_LENGTH)] for col in range(0,BOARD_LENGTH)]
     p1Inventory = Inventory(PLAYER_ONE, [], [], 10)
     p2Inventory = Inventory(PLAYER_TWO, [], [], 0)
     neutralInventory = Inventory(NEUTRAL, [], [], 0)
