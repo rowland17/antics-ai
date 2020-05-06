@@ -5,6 +5,7 @@
 #
 ##
 import pygame, os, sys, time
+from functools import reduce
 from pygame.locals import *
 from Building import Building
 from Ant import UNIT_STATS
@@ -479,13 +480,13 @@ class UserInterface(object):
         #Draw the elapsed time
         Yoffset = YStartPixel + len(scores) * (self.tournFont.get_height() + FIELD_SPACING)
         if (self.tournamentInProgress):
-            self.tournamentElapsed = time.clock() - self.tournamentStartTime
+            self.tournamentElapsed = time.process_time() - self.tournamentStartTime
         elapsedMessage = "Elapsed time: "
         elapsedColor = DARK_RED
         if (not self.tournamentInProgress):
             elapsedMessage = "Final time: "
             elapsedColor = DARK_GREEN
-        elapsedMessage += str(int(self.tournamentElapsed) / 60) + "m "
+        elapsedMessage += str(int(self.tournamentElapsed / 60)) + "m "
         elapsedMessage += str(int(self.tournamentElapsed) % 60) + "s"
         label = self.tournFont.render(elapsedMessage, True, elapsedColor)
         self.screen.blit(label, (XStartPixel, Yoffset))

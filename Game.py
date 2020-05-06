@@ -1248,7 +1248,7 @@ class Game(object):
                 self.gamesToPlay = [] #((p1.id, p2.id), numGames)
                 self.numGames = None
                 #notify UI tournament has started
-                self.ui.tournamentStartTime = time.clock()
+                self.ui.tournamentStartTime = time.process_time()
                 self.ui.tournamentInProgress = True
     
                 if self.ui.textBoxContent != '':
