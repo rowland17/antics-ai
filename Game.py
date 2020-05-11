@@ -1370,9 +1370,12 @@ class Game(object):
     #
     #Parameters:
     #   coord - The coordinate clicked ((int, int))
+    #           This was coming in as (float, float) so I'm changing the type.
     #
     ##
     def locationClickedCallback(self, coord):
+        #Change the type of coord from (float, float) to (int, int)
+        coord = (int(coord[0]), int(coord[1]))
         #Check if its human player's turn during play phase
         if self.state.phase == PLAY_PHASE and type(self.currentPlayers[self.state.whoseTurn]) is HumanPlayer.HumanPlayer:
             currentPlayer = self.currentPlayers[self.state.whoseTurn]
