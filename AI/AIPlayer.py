@@ -1,10 +1,12 @@
 import random
+import sys
+sys.path.append("..")  #so other modules can be found in parent dir
 from Player import *
 from Constants import *
 from Construction import CONSTR_STATS
 from Ant import UNIT_STATS
 from Move import Move
-from GameState import addCoords
+from GameState import *
 from AIPlayerUtils import *
 
 ##
@@ -25,7 +27,7 @@ class AIPlayer(Player):
     #   inputPlayerId - The id to give the new player (int)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "AI")
+        super(AIPlayer,self).__init__(inputPlayerId, "Random")
     
     ##
     #getPlacement
@@ -92,7 +94,14 @@ class AIPlayer(Player):
     ##
     def getMove(self, currentState):
         moves = listAllLegalMoves(currentState)
-        return moves[random.randint(0,len(moves) - 1)]
+        selectedMove = moves[random.randint(0,len(moves) - 1)];
+
+        #don't do a build move if there are already 3+ ants
+        numAnts = len(currentState.inventories[currentState.whoseTurn].ants)
+        while (selectedMove.moveType == BUILD and numAnts >= 3):
+            selectedMove = moves[random.randint(0,len(moves) - 1)];
+            
+        return selectedMove
     
     ##
     #getAttack
